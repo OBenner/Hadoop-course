@@ -1,0 +1,41 @@
+# flume-ng agent -n Agent -f /opt/examples/flume/fl.conf
+
+
+NetcatAgent.sources= Netcat
+NetcatAgent.channels = MemChannel
+NetcatAgent.sinks = hdfssink
+
+NetcatAgent.sources.Netcat.type = netcat
+NetcatAgent.sources.Netcat.bind = localhost
+NetcatAgent.sources.Netcat.port = 5000
+#a1.sources.so1.ack-every-event = false
+
+# Describe the sink
+NetcatAgent.sinks.hdfssink.type = hdfs
+NetcatAgent.sinks.hdfssink.hdfs.path = hdfs://quickstart.cloudera:8022/user/cloudera/events/%{year}/%{month}/%{day}
+NetcatAgent.sinks.hdfssink.hdfs.fileType = DataStream
+NetcatAgent.sinks.hdfssink.hdfs.writeFormat = Text
+NetcatAgent.sinks.hdfssink.hdfs.rollSize = 104857600
+NetcatAgent.sinks.hdfssink.hdfs.rollInterval = 0
+NetcatAgent.sinks.hdfssink.hdfs.rollCount = 0
+NetcatAgent.sinks.hdfssink.hdfs.batchSize = 2000
+NetcatAgent.sinks.hdfssink.hdfs.idleTimeout = 10
+
+# Use a channel which buffers events in memory
+NetcatAgent.channels.c1.type = memory
+NetcatAgent.channels.c1.capacity = 100000
+NetcatAgent.channels.c1.transactionCapacity = 2000
+NetcatAgent.channels.c1.byteCapacity = 10971520
+NetcatAgent.channels.c1.byteCapacityBufferPercentage = 10
+
+# Bind the source and sink to the channel
+NetcatAgent.sources.hdfssink.channels = c1
+NetcatAgent.sinks.hdfssink.channel = c1
+
+NetcatAgent.sources.hdfssink.interceptors = add-timestamp
+NetcatAgent.sources.hdfssink.interceptors.add-timestamp.type = regex_extractor
+NetcatAgent.sources.hdfssink.interceptors.add-timestamp.regex = ^.+(\\d{4})-(\\d{2})-(\\d{2}).+$
+NetcatAgent.sources.hdfssink.interceptors.add-timestamp.serializers = s1 s2 s3
+NetcatAgent.sources.hdfssink.interceptors.add-timestamp.serializers.s1.name = year
+NetcatAgent.sources.hdfssink.interceptors.add-timestamp.serializers.s2.name = month
+NetcatAgent.sources.hdfssink.interceptors.add-timestamp.serializers.s3.name = day

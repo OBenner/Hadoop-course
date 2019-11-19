@@ -1,0 +1,118 @@
+
+create database if not exists omyagkov;
+
+use omyagkov;
+
+drop table events;
+
+create external table if not exists events (product string,price double,eventtime timestamp,category string,ip string)partitioned by (date string)row format
+ serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'with serdeproperties ("separatorChar" = "\t","timestamp.formats" = "yyyy-MM-dd")stored as textfile
+location 'hdfs://quickstart.cloudera:8020/user/cloudera/events/';
+
+
+alter table events add partition (date='2019-09-02') location 'hdfs://quickstart.cloudera:8020/user/cloudera/events/2019/09/02';
+alter table events add partition (date='2019-09-03') location 'hdfs://quickstart.cloudera:8020/user/cloudera/events/2019/09/03';
+alter table events add partition (date='2019-09-04') location 'hdfs://quickstart.cloudera:8020/user/cloudera/events/2019/09/04';
+alter table events add partition (date='2019-09-05') location 'hdfs://quickstart.cloudera:8020/user/cloudera/events/2019/09/05';
+alter table events add partition (date='2019-09-06') location 'hdfs://quickstart.cloudera:8020/user/cloudera/events/2019/09/06';
+alter table events add partition (date='2019-09-07') location 'hdfs://quickstart.cloudera:8020/user/cloudera/events/2019/09/07';
+
+create external table if not exists ip (
+    network string,
+    geoname_id bigint,
+    registered_country_geoname_id bigint,
+    represented_country_geoname_id bigint,
+    is_anonymous_proxy boolean,
+    is_satellite_provider boolean
+)
+    row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+    stored as textfile
+    location 'hdfs://quickstart.cloudera:8020/user/cloudera/ips'
+    tblproperties ("skip.header.line.count"="1");
+
+  create external table if not exists ipinfo (
+    geoname_id bigint,
+    locale_code string,
+    continent_code string,
+    continent_name string,
+    country_iso_code string,
+    country_name string,
+    is_in_european_union boolean
+)
+    row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+    stored as textfile
+    location 'hdfs://quickstart.cloudera:8020/user/cloudera/ipc'
+    tblproperties ("skip.header.line.count"="1");
+
+ select product, category, num_of_transactions from
+        (select product, category, num_of_transactions, row_number()
+                    over (partition by category order by num_of_transactions desc) as rank from
+            (select product, category, count(*) as num_of_transactions from events group by product, category) ev) ranked
+        where ranked.rank <= 10 order by category, num_of_transactions desc;
+
+ select category, count(*) as purchase_count  from events group by category order by purchase_count  desc limit 10;
+
+
+create  function joinip as "com.griddynamics.IpJoin" using jar 'hdfs:///user/cloudera/udf/hiveUDFJoin-1.0-SNAPSHOT.jar';
+
+ select country_name, sum(price) as sum from
+         ipinfo inf join ip ipp on inf.geoname_id = ipp.geoname_id join events e where joinip(ipp.network,e.ip)
+       group by country_name
+       having country_name is not NULL and country_name != ''
+       order by sum desc limit 10;
+
+
+create table top10CountriesByMoneySpending (
+    country_name string,
+    sum bigint
+)
+    row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+    stored as textfile;
+
+
+
+
+create table top10Categories (
+    category string,
+    sum bigint
+)
+    row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+    stored as textfile;
+insert overwrite table top10Categories select category, count(*) as sum from events group by category order by sum desc limit 10;
+
+
+
+
+    create table top10ProductsInCategories (
+    product string,
+    category string,
+    num_of_transactions bigint
+)
+    row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+    stored as textfile;
+insert overwrite table top10ProductsInCategories
+    select product, category, num_of_transactions from
+        (select product, category, num_of_transactions, row_number()
+                    over (partition by category order by num_of_transactions desc) as rank from
+            (select product, category, count(*) as num_of_transactions from events group by product, category) ev) ranked
+        where ranked.rank <= 10 order by category, num_of_transactions desc;
+
+
+create table top10CountriesByMoneySpending (
+    country_name string,
+    sum bigint
+)
+    row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+    stored as textfile;
+
+set hive.auto.convert.join=true;
+insert overwrite table top10CountriesByMoneySpending
+select country_name, sum(price) as sum from
+         ipinfo inf join ip ipp on inf.geoname_id = ipp.geoname_id join events e where joinip(ipp.network,e.ip)
+       group by country_name
+       having country_name is not NULL and country_name != ''
+       order by sum desc limit 10;
+
+
+
+

@@ -1,0 +1,7 @@
+create table top10Categories (category varchar(40), sum integer);
+create table top10ProductsInCategories (product varchar(40), category varchar(40), num_of_transactions integer);
+create table top10CountriesByMoneySpending (country_name varchar(40), sum DOUBLE);
+
+sqoop export --connect jdbc:mysql://localhost:3306/omsqoop --username root --password cloudera --table top10Categories  --hcatalog-database omyagkov --hcatalog-table top10Categories;
+sqoop export --connect jdbc:mysql://localhost:3306/omsqoop --username root --password cloudera --table top10ProductsInCategories  --hcatalog-database omyagkov --hcatalog-table top10ProductsInCategories;
+sqoop export --connect jdbc:mysql://localhost:3306/omsqoop --username root --password cloudera --table top10CountriesByMoneySpending  --hcatalog-database omyagkov --hcatalog-table top10CountriesByMoneySpending;
